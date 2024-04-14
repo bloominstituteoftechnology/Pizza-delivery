@@ -8,6 +8,8 @@ const validationErrors = {
   sizeIncorrect: 'Size must be S or M or L'
 };
 
+
+
 const validationSchema = yup.object().shape({
   fullName: yup.string()
     .min(3, validationErrors.fullNameTooShort)
@@ -55,24 +57,31 @@ function Form() {
     }
   };
   
-  const handleChange = useCallback((event) => {
+  const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
-
-    if (name === 'fullName' || name === 'size') {
-      validateField(name, value);
-    }
-
+  
+    let newValue = value;
     if (type === 'checkbox' && name === 'toppings') {
-      const newToppings = checked
-        ? [...formData.toppings, parseInt(value)]
-        : formData.toppings.filter(topping_id => topping_id !== parseInt(value));
-      setFormData(prevFormData => ({ ...prevFormData, [name]: newToppings }));
+      const toppingId = parseInt(value);
+      const isChecked = checked;
+  
+      const newToppings = isChecked
+        ? [...formData.toppings, toppingId]
+        : formData.toppings.filter(id => id !== toppingId);
+  
+      setFormData(prevData => ({ ...prevData, toppings: newToppings }));
     } else {
-      setFormData(prevFormData => ({ ...prevFormData, [name]: value }));
+      newValue = value.trim(); // Trim whitespace for all other fields
+      setFormData(prevData => ({ ...prevData, [name]: newValue }));
     }
-  }, [formData, validateField]);
-
-  const handleSubmit = useCallback(async (event) => {
+  
+    // Only trigger validation if the value has changed
+    if (newValue !== formData[name]) {
+      validateField(name, newValue);
+    }
+  };
+  
+  const handleSubmit = async (event) => {
     event.preventDefault();
     try {
       await validationSchema.validate(formData, { abortEarly: false });
@@ -97,8 +106,11 @@ function Form() {
       }
       setSubmissionSuccess(false);
     }
-  }, [formData]);
+  };
+  
+  const isSubmitDisabled = !formData.fullName || !formData.size || !!errors.fullName || !!errors.size;
 
+  
   const submitFormData = useCallback(async (data) => {
     try {
       const response = await axios.post('http://localhost:9009/api/order', data, {
@@ -169,11 +181,12 @@ function Form() {
           </label>
         ))}
       </div>
-
       <input
-        type="submit"
-        disabled={!formData.fullName || !formData.size }
-      />
+      type="submit"
+      disabled={isSubmitDisabled} // Disable the submit button if there are validation errors
+    />
+
+
     </form>
   );
 }
