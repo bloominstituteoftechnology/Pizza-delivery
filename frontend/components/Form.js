@@ -37,21 +37,24 @@ function Form() {
   const [submissionError, setSubmissionError] = useState(false);
   const [serverMessage, setServerMessage] = useState('');
 
-  const validateField = useCallback(async (fieldName, value) => {
+  const validateField = async (fieldName, value) => {
     try {
       if (fieldName === 'fullName') {
-        const parts = value.trim().split(' ');
-        if (parts.length !== 2 || !parts.every(part => /^[a-zA-Z]{3,}$/.test(part))) {
+        // Remove whitespace and check if the remaining string has at least 3 characters
+        const trimmedValue = value.trim();
+        if (trimmedValue.replace(/\s/g, '').length < 3) {
           throw new Error(validationErrors.fullNameTooShort);
         }
       }
+      
       await yup.reach(validationSchema, fieldName).validate(value);
+  
       setErrors(prevErrors => ({ ...prevErrors, [fieldName]: '' }));
     } catch (error) {
       setErrors(prevErrors => ({ ...prevErrors, [fieldName]: error.message }));
     }
-  }, []);
-
+  };
+  
   const handleChange = useCallback((event) => {
     const { name, value, type, checked } = event.target;
 
