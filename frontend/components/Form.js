@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import * as yup from 'yup';
 
 const validationErrors = {
@@ -36,54 +36,40 @@ function Form() {
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submissionError, setSubmissionError] = useState(false);
   const [serverMessage, setServerMessage] = useState('');
-  
-  const validateField = async (fieldName, value) => {
+
+  const validateField = useCallback(async (fieldName, value) => {
     try {
       if (fieldName === 'fullName') {
-        // Check if the value contains two parts separated by a space
         const parts = value.trim().split(' ');
-        if (parts.length !== 2) {
-          throw new Error('Full name must be at least 3 characters');
-        }
-        // Check if each part contains at least 3 letters
-        if (!parts.every(part => /^[a-zA-Z]{3,}$/.test(part))) {
-          throw new Error('Full name must be at least 3 characters');
+        if (parts.length !== 2 || !parts.every(part => /^[a-zA-Z]{3,}$/.test(part))) {
+          throw new Error(validationErrors.fullNameTooShort);
         }
       }
-      // Validate other fields using yup schema
       await yup.reach(validationSchema, fieldName).validate(value);
-      setErrors({ ...errors, [fieldName]: '' });
+      setErrors(prevErrors => ({ ...prevErrors, [fieldName]: '' }));
     } catch (error) {
-      setErrors({ ...errors, [fieldName]: error.message });
+      setErrors(prevErrors => ({ ...prevErrors, [fieldName]: error.message }));
     }
-  };
-  
-  
-  
-  const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
-  
-    if (name === 'fullName') {
-      validateField(name, value); // Trigger validation for fullName field
-    } else if (name === 'size') {
-      validateField(name, value); // Trigger validation for size field
-    }
-  
-    if (type === 'checkbox' && name === 'toppings') {
-      let newToppings;
-      if (checked) {
-        newToppings = [...formData.toppings, parseInt(value)];
-      } else {
-        newToppings = formData.toppings.filter(topping_id => topping_id !== parseInt(value));
-      }
-      setFormData({ ...formData, [name]: newToppings });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
-  };
-  
+  }, []);
 
-  const handleSubmit = async (event) => {
+  const handleChange = useCallback((event) => {
+    const { name, value, type, checked } = event.target;
+
+    if (name === 'fullName' || name === 'size') {
+      validateField(name, value);
+    }
+
+    if (type === 'checkbox' && name === 'toppings') {
+      const newToppings = checked
+        ? [...formData.toppings, parseInt(value)]
+        : formData.toppings.filter(topping_id => topping_id !== parseInt(value));
+      setFormData(prevFormData => ({ ...prevFormData, [name]: newToppings }));
+    } else {
+      setFormData(prevFormData => ({ ...prevFormData, [name]: value }));
+    }
+  }, [formData, validateField]);
+
+  const handleSubmit = useCallback(async (event) => {
     event.preventDefault();
     try {
       await validationSchema.validate(formData, { abortEarly: false });
@@ -108,9 +94,9 @@ function Form() {
       }
       setSubmissionSuccess(false);
     }
-  };
+  }, [formData]);
 
-  const submitFormData = async (data) => {
+  const submitFormData = useCallback(async (data) => {
     try {
       const response = await axios.post('http://localhost:9009/api/order', data, {
         headers: {
@@ -126,7 +112,7 @@ function Form() {
       console.error('Failed to submit form:', error);
       throw error;
     }
-  };
+  }, []);
 
   return (
     <form onSubmit={handleSubmit}>
@@ -182,10 +168,9 @@ function Form() {
       </div>
 
       <input
-      type="submit"
-      disabled={!formData.fullName || !formData.size || Object.values(errors).some(error => !!error)}
-    />
-
+        type="submit"
+        disabled={!formData.fullName || !formData.size }
+      />
     </form>
   );
 }
